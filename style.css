@@ -101,6 +101,72 @@ input[type="file"] {
     width: 100%;
     height: 150px;
     background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#seek-slider {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 1;
+    /* Visible for interaction */
+    -webkit-appearance: none;
+    background: transparent;
+    z-index: 5;
+    cursor: pointer;
+}
+
+/* Custom Seek Thumb */
+#seek-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 4px;
+    height: 150px;
+    /* Match container height */
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    cursor: ew-resize;
+    margin-top: 0;
+}
+
+#seek-slider::-moz-range-thumb {
+    width: 4px;
+    height: 150px;
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    cursor: ew-resize;
+}
+
+/* Remove default track styles for seek slider */
+#seek-slider::-webkit-slider-runnable-track {
+    background: transparent;
+    height: 100%;
+}
+
+#seek-slider::-moz-range-track {
+    background: transparent;
+    height: 100%;
+}
+
+#loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.7);

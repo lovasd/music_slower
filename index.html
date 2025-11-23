@@ -21,38 +21,57 @@
         <main>
             <div class="upload-section">
                 <label for="audio-upload" class="custom-file-upload">
-                    <span class="pause-icon hidden">⏸</span>
+                    <span class="icon">📁</span> Choose Audio File
+                </label>
+                <input type="file" id="audio-upload" accept="audio/*">
+                <p id="file-name">No file chosen</p>
+            </div>
+
+            <div class="visualizer-container">
+                <canvas id="waveform"></canvas>
+                <input type="range" id="seek-slider" min="0" value="0" step="0.01" disabled>
+                <div id="loading-overlay" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Processing Audio...</p>
+                </div>
+            </div>
+
+            <div class="controls-container">
+                <div class="transport-controls">
+                    <button id="play-pause-btn" disabled>
+                        <span class="play-icon">▶</span>
+                        <span class="pause-icon hidden">⏸</span>
                     </button>
                     <div class="time-display">
                         <span id="current-time">0:00</span> / <span id="total-duration">0:00</span>
                     </div>
-            </div>
-
-            <div class="sliders-section">
-                <div class="control-group">
-                    <div class="knob-wrapper">
-                        <div class="knob" id="speed-knob" role="slider" aria-valuenow="1.0" aria-valuemin="0.5"
-                            aria-valuemax="1.5" tabindex="0">
-                            <div class="knob-indicator"></div>
-                        </div>
-                        <label>Speed</label>
-                        <span class="value-display" id="speed-value">1.00x</span>
-                    </div>
                 </div>
 
-                <div class="control-group">
-                    <div class="knob-wrapper">
-                        <div class="knob" id="reverb-knob" role="slider" aria-valuenow="0" aria-valuemin="0"
-                            aria-valuemax="1" tabindex="0">
-                            <div class="knob-indicator"></div>
+                <div class="sliders-section">
+                    <div class="control-group">
+                        <div class="knob-wrapper">
+                            <div class="knob" id="speed-knob" role="slider" aria-valuenow="1.0" aria-valuemin="0.5"
+                                aria-valuemax="1.5" tabindex="0">
+                                <div class="knob-indicator"></div>
+                            </div>
+                            <label>Speed</label>
+                            <span class="value-display" id="speed-value">1.00x</span>
                         </div>
-                        <label>Reverb</label>
-                        <span class="value-display" id="reverb-value">0%</span>
+                    </div>
+
+                    <div class="control-group">
+                        <div class="knob-wrapper">
+                            <div class="knob" id="reverb-knob" role="slider" aria-valuenow="0" aria-valuemin="0"
+                                aria-valuemax="1" tabindex="0">
+                                <div class="knob-indicator"></div>
+                            </div>
+                            <label>Reverb</label>
+                            <span class="value-display" id="reverb-value">0%</span>
+                        </div>
                     </div>
                 </div>
             </div>
-    </div>
-    </main>
+        </main>
     </div>
     <script src="app.js"></script>
 </body>

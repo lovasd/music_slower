@@ -5,6 +5,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const playPauseBtn = document.getElementById('play-pause-btn');
     const playIcon = document.querySelector('.play-icon');
     const pauseIcon = document.querySelector('.pause-icon');
+
+    // Knobs
+    const speedKnob = document.getElementById('speed-knob');
+    const speedValue = document.getElementById('speed-value');
+    const reverbKnob = document.getElementById('reverb-knob');
+    const reverbValue = document.getElementById('reverb-value');
+
+    const canvas = document.getElementById('waveform');
+    const seekSlider = document.getElementById('seek-slider');
+    const ctx = canvas.getContext('2d');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const currentTimeDisplay = document.getElementById('current-time');
+    const totalDurationDisplay = document.getElementById('total-duration');
+
     // --- Audio Context & State ---
     let audioCtx;
     let audioBuffer = null;
@@ -43,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     seekSlider.addEventListener('input', handleSeek);
-    seekSlider.addEventListener('change', handleSeekEnd); // For final commit if needed
+    seekSlider.addEventListener('change', handleSeekEnd);
 
     // Resize canvas
     function resizeCanvas() {
@@ -241,17 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const seekTime = parseFloat(e.target.value);
 
         if (isPlaying) {
-            // Smooth seeking: update pausedAt but don't restart playback constantly if performance is bad.
-            // But for responsiveness, we usually want to hear it.
-            // Let's just update the time display and waveform, and restart audio on 'change' or debounce?
-            // Actually, standard HTML5 audio seeking is 'input'.
-
-            // For Web Audio API, we have to stop and start.
-            // Doing this on every 'input' event (drag) might be glitchy.
-            // Let's just update visual on drag, and seek audio on drag end?
-            // User requested "scroll like youtube". YouTube updates video as you drag.
-            // Let's try to update audio. If it glitches, we can throttle.
-
             internalPause();
             pausedAt = seekTime;
             playAudio();
@@ -313,10 +316,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPos = getCurrentTime();
         seekSlider.value = currentPos;
         currentTimeDisplay.textContent = formatTime(currentPos);
-
-        // drawWaveform(); // No need to redraw waveform constantly if playhead is the slider
-        // Unless we want to animate something else.
-        // Optimization: Don't redraw canvas every frame if it's static.
 
         requestAnimationFrame(updateProgress);
     }
