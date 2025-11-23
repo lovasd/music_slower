@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const playPauseBtn = document.getElementById('play-pause-btn');
     const playIcon = document.querySelector('.play-icon');
     const pauseIcon = document.querySelector('.pause-icon');
+    const youtubeUrlInput = document.getElementById('youtube-url');
+    const loadYoutubeBtn = document.getElementById('load-youtube-btn');
 
     // Knobs
     const speedKnob = document.getElementById('speed-knob');
@@ -45,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     fileInput.addEventListener('change', handleFileUpload);
     playPauseBtn.addEventListener('click', togglePlayPause);
+    loadYoutubeBtn.addEventListener('click', handleYoutubeLoad);
 
     // Knob Interactions
     setupKnob(speedKnob, 0.5, 1.5, 1.0, (val) => {
@@ -108,6 +111,45 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error loading audio:", err);
             alert("Error loading audio file. Please try another one.");
             loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    async function handleYoutubeLoad() {
+        const url = youtubeUrlInput.value.trim();
+        if (!url) return;
+
+        initAudio();
+        stopAudio();
+
+        loadingOverlay.classList.remove('hidden');
+        disableControls(true);
+        fileNameDisplay.textContent = "Loading YouTube Audio...";
+
+        try {
+            const response = await fetch(`/api/process-youtube?url=${encodeURIComponent(url)}`);
+            if (!response.ok) throw new Error('Failed to fetch audio');
+
+            const arrayBuffer = await response.arrayBuffer();
+            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+            await setupReverb();
+
+            const duration = audioBuffer.duration;
+            totalDurationDisplay.textContent = formatTime(duration);
+
+            seekSlider.max = duration;
+            seekSlider.value = 0;
+
+            drawWaveform();
+            disableControls(false);
+            loadingOverlay.classList.add('hidden');
+            fileNameDisplay.textContent = "YouTube Audio Loaded";
+
+        } catch (err) {
+            console.error("Error loading YouTube audio:", err);
+            alert("Error loading YouTube audio. Please check the URL and try again.");
+            loadingOverlay.classList.add('hidden');
+            fileNameDisplay.textContent = "Error loading file";
         }
     }
 
