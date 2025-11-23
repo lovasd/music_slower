@@ -197,110 +197,103 @@ canvas {
     font-size: 1.1rem;
 }
 
-/* Sliders */
+/* Knobs */
 .sliders-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    display: flex;
+    justify-content: center;
+    gap: 4rem;
+    margin-top: 1rem;
 }
 
 .control-group {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.knob-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 0.5rem;
 }
 
+.knob {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2a2a35, #16161c);
+    position: relative;
+    cursor: ns-resize;
+    /* North-South resize cursor indicates drag up/down */
+    box-shadow:
+        5px 5px 10px #0b0b0e,
+        -5px -5px 10px #2d2d3a,
+        inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+    transition: box-shadow 0.2s ease;
+}
+
+.knob:hover {
+    box-shadow:
+        5px 5px 15px #0b0b0e,
+        -5px -5px 15px #2d2d3a,
+        inset 0 0 0 2px rgba(139, 92, 246, 0.3);
+}
+
+.knob:active {
+    cursor: ns-resize;
+}
+
+.knob.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.knob-indicator {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    width: 4px;
+    height: 40%;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(0deg);
+    /* Rotation handled by JS */
+    pointer-events: none;
+}
+
+.knob-indicator::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 12px;
+    background: var(--primary-color);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--primary-color);
+}
+
+.value-display {
+    font-family: monospace;
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
 label {
-    display: flex;
-    justify-content: space-between;
     color: var(--text-secondary);
     font-size: 0.9rem;
     font-weight: 600;
-}
-
-label span {
-    color: var(--primary-color);
-}
-
-input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    outline: none;
-    transition: background 0.2s;
-    cursor: pointer;
-}
-
-/* Slider Track (Chrome/Safari) */
-input[type="range"]::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 8px;
-    cursor: pointer;
-    background: transparent;
-    /* Handled by JS for fill effect */
-    border-radius: 4px;
-}
-
-/* Slider Thumb (Chrome/Safari) */
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 24px;
-    width: 24px;
-    border-radius: 50%;
-    background: var(--primary-color);
-    cursor: pointer;
-    margin-top: -8px;
-    /* Centers thumb on track */
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
-    border: 2px solid var(--surface-color);
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
-}
-
-input[type="range"]:active::-webkit-slider-thumb {
-    transform: scale(0.95);
-    box-shadow: 0 0 5px rgba(139, 92, 246, 0.8);
-}
-
-/* Firefox Styles */
-input[type="range"]::-moz-range-track {
-    width: 100%;
-    height: 8px;
-    cursor: pointer;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-}
-
-input[type="range"]::-moz-range-thumb {
-    height: 24px;
-    width: 24px;
-    border: 2px solid var(--surface-color);
-    border-radius: 50%;
-    background: var(--primary-color);
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
-}
-
-input[type="range"]::-moz-range-progress {
-    background-color: var(--primary-color);
-    height: 8px;
-    border-radius: 4px;
-}
-
-input[type="range"]:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 @media (max-width: 600px) {
     .sliders-section {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        gap: 2rem;
     }
 
     .app-container {

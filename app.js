@@ -5,10 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const playPauseBtn = document.getElementById('play-pause-btn');
     const playIcon = document.querySelector('.play-icon');
     const pauseIcon = document.querySelector('.pause-icon');
-    const speedSlider = document.getElementById('speed-slider');
+
+    // Knobs
+    const speedKnob = document.getElementById('speed-knob');
     const speedValue = document.getElementById('speed-value');
-    const reverbSlider = document.getElementById('reverb-slider');
+    const reverbKnob = document.getElementById('reverb-knob');
     const reverbValue = document.getElementById('reverb-value');
+
     const canvas = document.getElementById('waveform');
     const ctx = canvas.getContext('2d');
     const loadingOverlay = document.getElementById('loading-overlay');
@@ -40,18 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     fileInput.addEventListener('change', handleFileUpload);
     playPauseBtn.addEventListener('click', togglePlayPause);
-    speedSlider.addEventListener('input', (e) => {
-        handleSpeedChange(e);
-        updateSliderFill(e.target);
-    });
-    reverbSlider.addEventListener('input', (e) => {
-        handleReverbChange(e);
-        updateSliderFill(e.target);
+
+    // Knob Interactions
+    setupKnob(speedKnob, 0.5, 1.5, 1.0, (val) => {
+        handleSpeedChange(val);
+        speedValue.textContent = val.toFixed(2) + 'x';
     });
 
-    // Initialize slider fills
-    updateSliderFill(speedSlider);
-    updateSliderFill(reverbSlider);
+    setupKnob(reverbKnob, 0, 1, 0, (val) => {
+        handleReverbChange(val);
+        reverbValue.textContent = Math.round(val * 100) + '%';
+    });
+
     canvas.addEventListener('click', handleScrub);
 
     // Resize canvas
@@ -156,30 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sourceNode = null;
         }
         // Save current position
-        pausedAt = (audioCtx.currentTime - startTime) * playbackRate; // Adjust for speed? No, currentTime is real time.
-        // Actually, if playbackRate changes, simple subtraction doesn't work perfectly for seeking if rate varied. 
-        // But for simple pause/resume with constant rate, we need to track "audio time".
-        // Let's rely on a more robust tracking if we change speed mid-stream.
-        // For now, let's assume pausedAt is "offset in buffer".
-
-        // Correct calculation:
-        // We played for (audioCtx.currentTime - startTime) seconds of WALL clock time.
-        // Audio advanced by (wall_time * playbackRate).
-        // BUT, if we change rate while playing, this breaks.
-        // Ideally we just restart from the last known position.
-        // Let's simplify: When changing speed, we don't restart, we just update the param.
-        // When pausing, we calculate where we are.
-
-        // However, sourceNode.playbackRate is a k-rate param.
-        // Let's recalculate pausedAt based on elapsed time * current rate? 
-        // No, that's only if rate was constant.
-
-        // Better approach for accurate seeking/pausing with variable speed:
-        // We can't easily query "current buffer position" from a BufferSource.
-        // We have to track it.
-        // Let's just use the simple approximation for now, assuming rate doesn't change wildly every frame.
-        // Actually, if we change rate, we should update startTime so the math holds.
-        // See handleSpeedChange.
+        pausedAt = (audioCtx.currentTime - startTime) * playbackRate;
 
         isPlaying = false;
         updatePlayButton();
@@ -208,9 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const elapsedWallTime = audioCtx.currentTime - startTime;
             pausedAt += elapsedWallTime * playbackRate;
             pauseAudio();
-            // We already updated pausedAt above, but pauseAudio logic was slightly different.
-            // Let's fix pauseAudio to NOT recalculate if we do it here, or unify.
-            // Let's make pauseAudio just stop.
         } else {
             playAudio();
         }
@@ -227,12 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlayButton();
     }
 
-    // Redefine play/pause logic to be robust
-    // We track `pausedAt` as the offset in the buffer (seconds).
-    // `startTime` is the audioCtx.currentTime when we hit play.
-
-    // When playing: currentOffset = pausedAt + (audioCtx.currentTime - startTime) * playbackRate
-
     function getCurrentTime() {
         if (!isPlaying) return pausedAt;
         const elapsed = audioCtx.currentTime - startTime;
@@ -244,15 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return time;
     }
 
-    function handleSpeedChange(e) {
-        const newRate = parseFloat(e.target.value);
+    function handleSpeedChange(val) {
+        const newRate = val;
 
         if (isPlaying) {
-            // We need to adjust startTime so that the jump in time doesn't happen.
-            // Current position shouldn't change.
             const currentBufferTime = getCurrentTime();
-
-            // Reset anchor
             pausedAt = currentBufferTime;
             startTime = audioCtx.currentTime;
 
@@ -262,18 +229,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         playbackRate = newRate;
-        speedValue.textContent = newRate.toFixed(2) + 'x';
     }
 
-    function handleReverbChange(e) {
-        reverbAmount = parseFloat(e.target.value);
-        reverbValue.textContent = Math.round(reverbAmount * 100) + '%';
+    function handleReverbChange(val) {
+        reverbAmount = val;
         updateReverbMix();
     }
 
     function updateReverbMix() {
         if (!dryNode || !wetNode) return;
-        // Equal power crossfade or linear? Linear is fine for simple wet/dry.
         // Dry: 1 - amount, Wet: amount
         dryNode.gain.value = 1 - reverbAmount;
         wetNode.gain.value = reverbAmount * 2; // Boost wet a bit as reverb can be quiet
@@ -368,22 +332,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function disableControls(disabled) {
         playPauseBtn.disabled = disabled;
-        speedSlider.disabled = disabled;
-        reverbSlider.disabled = disabled;
 
-        // Update visual state
-        if (!disabled) {
-            updateSliderFill(speedSlider);
-            updateSliderFill(reverbSlider);
+        if (disabled) {
+            speedKnob.classList.add('disabled');
+            reverbKnob.classList.add('disabled');
+        } else {
+            speedKnob.classList.remove('disabled');
+            reverbKnob.classList.remove('disabled');
         }
     }
 
-    function updateSliderFill(slider) {
-        const min = parseFloat(slider.min);
-        const max = parseFloat(slider.max);
-        const val = parseFloat(slider.value);
-        const percentage = ((val - min) / (max - min)) * 100;
+    // --- Knob Logic ---
+    function setupKnob(element, min, max, initialValue, onChange) {
+        let currentValue = initialValue;
+        let isDragging = false;
+        let startY = 0;
+        let startValue = 0;
 
-        slider.style.background = `linear-gradient(to right, #8b5cf6 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`;
+        // Initial visual update
+        updateKnobVisual(element, currentValue, min, max);
+        onChange(currentValue); // Trigger initial change for value display
+
+        element.addEventListener('mousedown', (e) => {
+            if (element.classList.contains('disabled')) return;
+            isDragging = true;
+            startY = e.clientY;
+            startValue = currentValue;
+            document.body.style.cursor = 'ns-resize';
+            e.preventDefault(); // Prevent text selection
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaY = startY - e.clientY; // Drag up = positive
+            const sensitivity = 0.005 * (max - min); // Adjust sensitivity based on range
+
+            let newValue = startValue + (deltaY * sensitivity);
+
+            // Clamp
+            if (newValue < min) newValue = min;
+            if (newValue > max) newValue = max;
+
+            currentValue = newValue;
+            updateKnobVisual(element, currentValue, min, max);
+            onChange(currentValue);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.cursor = 'default';
+            }
+        });
+    }
+
+    function updateKnobVisual(element, value, min, max) {
+        // Map value to angle (-135deg to +135deg)
+        const percent = (value - min) / (max - min);
+        const angle = -135 + (percent * 270);
+
+        const indicator = element.querySelector('.knob-indicator');
+        indicator.style.transform = `translateX(-50%) rotate(${angle}deg)`;
     }
 });
