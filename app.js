@@ -5,19 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const playPauseBtn = document.getElementById('play-pause-btn');
     const playIcon = document.querySelector('.play-icon');
     const pauseIcon = document.querySelector('.pause-icon');
-
-    // Knobs
-    const speedKnob = document.getElementById('speed-knob');
-    const speedValue = document.getElementById('speed-value');
-    const reverbKnob = document.getElementById('reverb-knob');
-    const reverbValue = document.getElementById('reverb-value');
-
-    const canvas = document.getElementById('waveform');
-    const ctx = canvas.getContext('2d');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const currentTimeDisplay = document.getElementById('current-time');
-    const totalDurationDisplay = document.getElementById('total-duration');
-
     // --- Audio Context & State ---
     let audioCtx;
     let audioBuffer = null;
@@ -55,7 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
         reverbValue.textContent = Math.round(val * 100) + '%';
     });
 
-    canvas.addEventListener('click', handleScrub);
+    seekSlider.addEventListener('input', handleSeek);
+    seekSlider.addEventListener('change', handleSeekEnd); // For final commit if needed
 
     // Resize canvas
     function resizeCanvas() {
@@ -89,6 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Update UI
             const duration = audioBuffer.duration;
             totalDurationDisplay.textContent = formatTime(duration);
+
+            seekSlider.max = duration;
+            seekSlider.value = 0;
+
             drawWaveform();
             disableControls(false);
             loadingOverlay.classList.add('hidden');
@@ -175,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pausedAt = 0;
         startTime = 0;
         updatePlayButton();
+        seekSlider.value = 0;
         drawWaveform(); // Reset cursor
     }
 
@@ -243,24 +236,34 @@ document.addEventListener('DOMContentLoaded', () => {
         wetNode.gain.value = reverbAmount * 2; // Boost wet a bit as reverb can be quiet
     }
 
-    function handleScrub(e) {
+    function handleSeek(e) {
         if (!audioBuffer) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const width = rect.width;
-        const clickPercent = x / width;
-
-        const seekTime = clickPercent * audioBuffer.duration;
+        const seekTime = parseFloat(e.target.value);
 
         if (isPlaying) {
+            // Smooth seeking: update pausedAt but don't restart playback constantly if performance is bad.
+            // But for responsiveness, we usually want to hear it.
+            // Let's just update the time display and waveform, and restart audio on 'change' or debounce?
+            // Actually, standard HTML5 audio seeking is 'input'.
+
+            // For Web Audio API, we have to stop and start.
+            // Doing this on every 'input' event (drag) might be glitchy.
+            // Let's just update visual on drag, and seek audio on drag end?
+            // User requested "scroll like youtube". YouTube updates video as you drag.
+            // Let's try to update audio. If it glitches, we can throttle.
+
             internalPause();
             pausedAt = seekTime;
             playAudio();
         } else {
             pausedAt = seekTime;
-            drawWaveform(); // Update cursor
+            drawWaveform();
         }
+        currentTimeDisplay.textContent = formatTime(seekTime);
+    }
+
+    function handleSeekEnd(e) {
+        // Ensure we are at the right spot
     }
 
     // --- Visualization ---
@@ -295,21 +298,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ctx.stroke();
 
-        // Draw Playhead
-        const currentPos = getCurrentTime();
-        const percent = currentPos / audioBuffer.duration;
-        const x = percent * width;
-
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(x, 0, 2, height);
+        // Draw Playhead - Handled by Slider now?
+        // Actually, we still want to draw the playhead on the canvas OR rely on the slider thumb.
+        // The slider thumb is styled to look like a playhead.
+        // So we DON'T draw the rect on canvas anymore, to avoid double playheads.
 
         // Update Time Display
-        currentTimeDisplay.textContent = formatTime(currentPos);
+        // currentTimeDisplay.textContent = formatTime(currentPos); // Done in updateProgress
     }
 
     function updateProgress() {
         if (!isPlaying) return;
-        drawWaveform();
+
+        const currentPos = getCurrentTime();
+        seekSlider.value = currentPos;
+        currentTimeDisplay.textContent = formatTime(currentPos);
+
+        // drawWaveform(); // No need to redraw waveform constantly if playhead is the slider
+        // Unless we want to animate something else.
+        // Optimization: Don't redraw canvas every frame if it's static.
+
         requestAnimationFrame(updateProgress);
     }
 
@@ -336,9 +344,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (disabled) {
             speedKnob.classList.add('disabled');
             reverbKnob.classList.add('disabled');
+            seekSlider.disabled = true;
         } else {
             speedKnob.classList.remove('disabled');
             reverbKnob.classList.remove('disabled');
+            seekSlider.disabled = false;
         }
     }
 
