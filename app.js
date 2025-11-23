@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let reverbNode = null;
     let dryNode = null;
     let wetNode = null;
-    
+
     let isPlaying = false;
     let startTime = 0;
     let pausedAt = 0;
@@ -40,10 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Event Listeners ---
     fileInput.addEventListener('change', handleFileUpload);
     playPauseBtn.addEventListener('click', togglePlayPause);
-    speedSlider.addEventListener('input', handleSpeedChange);
-    reverbSlider.addEventListener('input', handleReverbChange);
+    speedSlider.addEventListener('input', (e) => {
+        handleSpeedChange(e);
+        updateSliderFill(e.target);
+    });
+    reverbSlider.addEventListener('input', (e) => {
+        handleReverbChange(e);
+        updateSliderFill(e.target);
+    });
+
+    // Initialize slider fills
+    updateSliderFill(speedSlider);
+    updateSliderFill(reverbSlider);
     canvas.addEventListener('click', handleScrub);
-    
+
     // Resize canvas
     function resizeCanvas() {
         canvas.width = canvas.offsetWidth;
@@ -59,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file) return;
 
         initAudio();
-        
+
         // Reset state
         stopAudio();
         fileNameDisplay.textContent = file.name;
@@ -69,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const arrayBuffer = await file.arrayBuffer();
             audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            
+
             // Setup Reverb Impulse
             await setupReverb();
 
@@ -103,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         reverbNode = audioCtx.createConvolver();
         reverbNode.buffer = impulse;
-        
+
         dryNode = audioCtx.createGain();
         wetNode = audioCtx.createGain();
         gainNode = audioCtx.createGain();
@@ -121,11 +131,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Routing:
         // Source -> Dry -> Output
         // Source -> Reverb -> Wet -> Output
-        
+
         sourceNode.connect(dryNode);
         sourceNode.connect(reverbNode);
         reverbNode.connect(wetNode);
-        
+
         dryNode.connect(gainNode);
         wetNode.connect(gainNode);
         gainNode.connect(audioCtx.destination);
@@ -133,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate start time
         startTime = audioCtx.currentTime - pausedAt;
         sourceNode.start(0, pausedAt);
-        
+
         isPlaying = true;
         updatePlayButton();
         requestAnimationFrame(updateProgress);
@@ -151,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // But for simple pause/resume with constant rate, we need to track "audio time".
         // Let's rely on a more robust tracking if we change speed mid-stream.
         // For now, let's assume pausedAt is "offset in buffer".
-        
+
         // Correct calculation:
         // We played for (audioCtx.currentTime - startTime) seconds of WALL clock time.
         // Audio advanced by (wall_time * playbackRate).
@@ -159,25 +169,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Ideally we just restart from the last known position.
         // Let's simplify: When changing speed, we don't restart, we just update the param.
         // When pausing, we calculate where we are.
-        
+
         // However, sourceNode.playbackRate is a k-rate param.
         // Let's recalculate pausedAt based on elapsed time * current rate? 
         // No, that's only if rate was constant.
-        
+
         // Better approach for accurate seeking/pausing with variable speed:
         // We can't easily query "current buffer position" from a BufferSource.
         // We have to track it.
         // Let's just use the simple approximation for now, assuming rate doesn't change wildly every frame.
         // Actually, if we change rate, we should update startTime so the math holds.
         // See handleSpeedChange.
-        
+
         isPlaying = false;
         updatePlayButton();
     }
-    
+
     function stopAudio() {
         if (sourceNode) {
-            try { sourceNode.stop(); } catch(e){}
+            try { sourceNode.stop(); } catch (e) { }
             sourceNode.disconnect();
             sourceNode = null;
         }
@@ -220,9 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Redefine play/pause logic to be robust
     // We track `pausedAt` as the offset in the buffer (seconds).
     // `startTime` is the audioCtx.currentTime when we hit play.
-    
+
     // When playing: currentOffset = pausedAt + (audioCtx.currentTime - startTime) * playbackRate
-    
+
     function getCurrentTime() {
         if (!isPlaying) return pausedAt;
         const elapsed = audioCtx.currentTime - startTime;
@@ -236,21 +246,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSpeedChange(e) {
         const newRate = parseFloat(e.target.value);
-        
+
         if (isPlaying) {
             // We need to adjust startTime so that the jump in time doesn't happen.
             // Current position shouldn't change.
             const currentBufferTime = getCurrentTime();
-            
+
             // Reset anchor
             pausedAt = currentBufferTime;
             startTime = audioCtx.currentTime;
-            
+
             if (sourceNode) {
                 sourceNode.playbackRate.setValueAtTime(newRate, audioCtx.currentTime);
             }
         }
-        
+
         playbackRate = newRate;
         speedValue.textContent = newRate.toFixed(2) + 'x';
     }
@@ -271,14 +281,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleScrub(e) {
         if (!audioBuffer) return;
-        
+
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const width = rect.width;
         const clickPercent = x / width;
-        
+
         const seekTime = clickPercent * audioBuffer.duration;
-        
+
         if (isPlaying) {
             internalPause();
             pausedAt = seekTime;
@@ -300,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const amp = height / 2;
 
         ctx.clearRect(0, 0, width, height);
-        
+
         // Draw Waveform
         ctx.beginPath();
         ctx.strokeStyle = '#8b5cf6'; // Primary color
@@ -309,13 +319,13 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < width; i++) {
             let min = 1.0;
             let max = -1.0;
-            
+
             for (let j = 0; j < step; j++) {
                 const datum = data[(i * step) + j];
                 if (datum < min) min = datum;
                 if (datum > max) max = datum;
             }
-            
+
             ctx.moveTo(i, (1 + min) * amp);
             ctx.lineTo(i, (1 + max) * amp);
         }
@@ -328,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.fillStyle = '#fff';
         ctx.fillRect(x, 0, 2, height);
-        
+
         // Update Time Display
         currentTimeDisplay.textContent = formatTime(currentPos);
     }
@@ -360,5 +370,20 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.disabled = disabled;
         speedSlider.disabled = disabled;
         reverbSlider.disabled = disabled;
+
+        // Update visual state
+        if (!disabled) {
+            updateSliderFill(speedSlider);
+            updateSliderFill(reverbSlider);
+        }
+    }
+
+    function updateSliderFill(slider) {
+        const min = parseFloat(slider.min);
+        const max = parseFloat(slider.max);
+        const val = parseFloat(slider.value);
+        const percentage = ((val - min) / (max - min)) * 100;
+
+        slider.style.background = `linear-gradient(to right, #8b5cf6 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`;
     }
 });
