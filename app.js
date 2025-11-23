@@ -32,7 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let startTime = 0;
     let pausedAt = 0;
     let playbackRate = 1.0;
+    let playbackRate = 1.0;
     let reverbAmount = 0;
+    let wasPlaying = false;
 
     // --- Initialization ---
     function initAudio() {
@@ -50,265 +52,42 @@ document.addEventListener('DOMContentLoaded', () => {
         handleSpeedChange(val);
         speedValue.textContent = val.toFixed(2) + 'x';
     });
+    const width = canvas.width;
+    const height = canvas.height;
+    const data = audioBuffer.getChannelData(0); // Left channel
+    const step = Math.ceil(data.length / width);
+    const amp = height / 2;
 
-    setupKnob(reverbKnob, 0, 1, 0, (val) => {
-        handleReverbChange(val);
-        reverbValue.textContent = Math.round(val * 100) + '%';
-    });
+    ctx.clearRect(0, 0, width, height);
 
-    seekSlider.addEventListener('input', handleSeek);
-    seekSlider.addEventListener('change', handleSeekEnd);
+    // Draw Waveform
+    ctx.beginPath();
+    ctx.strokeStyle = '#8b5cf6'; // Primary color
+    ctx.lineWidth = 2;
 
-    // Resize canvas
-    function resizeCanvas() {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-        if (audioBuffer) drawWaveform();
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    for (let i = 0; i < width; i++) {
+        let min = 1.0;
+        let max = -1.0;
 
-    // --- File Handling ---
-    async function handleFileUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        initAudio();
-
-        // Reset state
-        stopAudio();
-        fileNameDisplay.textContent = file.name;
-        loadingOverlay.classList.remove('hidden');
-        disableControls(true);
-
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-            // Setup Reverb Impulse
-            await setupReverb();
-
-            // Update UI
-            const duration = audioBuffer.duration;
-            totalDurationDisplay.textContent = formatTime(duration);
-
-            seekSlider.max = duration;
-            seekSlider.value = 0;
-
-            drawWaveform();
-            disableControls(false);
-            loadingOverlay.classList.add('hidden');
-        } catch (err) {
-            console.error("Error loading audio:", err);
-            alert("Error loading audio file. Please try another one.");
-            loadingOverlay.classList.add('hidden');
-        }
-    }
-
-    // --- Audio Engine ---
-    async function setupReverb() {
-        // Create a simple impulse response for reverb
-        const sampleRate = audioCtx.sampleRate;
-        const length = sampleRate * 2.0; // 2 seconds
-        const impulse = audioCtx.createBuffer(2, length, sampleRate);
-        const left = impulse.getChannelData(0);
-        const right = impulse.getChannelData(1);
-
-        for (let i = 0; i < length; i++) {
-            const decay = Math.pow(1 - i / length, 2); // Exponential decay
-            left[i] = (Math.random() * 2 - 1) * decay;
-            right[i] = (Math.random() * 2 - 1) * decay;
+        for (let j = 0; j < step; j++) {
+            const datum = data[(i * step) + j];
+            if (datum < min) min = datum;
+            if (datum > max) max = datum;
         }
 
-        reverbNode = audioCtx.createConvolver();
-        reverbNode.buffer = impulse;
-
-        dryNode = audioCtx.createGain();
-        wetNode = audioCtx.createGain();
-        gainNode = audioCtx.createGain();
-
-        updateReverbMix();
+        ctx.moveTo(i, (1 + min) * amp);
+        ctx.lineTo(i, (1 + max) * amp);
     }
+    ctx.stroke();
 
-    function playAudio() {
-        if (!audioBuffer) return;
+    // Draw Playhead - Handled by Slider now?
+    // Actually, we still want to draw the playhead on the canvas OR rely on the slider thumb.
+    // The slider thumb is styled to look like a playhead.
+    // So we DON'T draw the rect on canvas anymore, to avoid double playheads.
 
-        sourceNode = audioCtx.createBufferSource();
-        sourceNode.buffer = audioBuffer;
-        sourceNode.playbackRate.value = playbackRate;
-
-        // Routing:
-        // Source -> Dry -> Output
-        // Source -> Reverb -> Wet -> Output
-
-        sourceNode.connect(dryNode);
-        sourceNode.connect(reverbNode);
-        reverbNode.connect(wetNode);
-
-        dryNode.connect(gainNode);
-        wetNode.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        // Calculate start time
-        startTime = audioCtx.currentTime - pausedAt;
-        sourceNode.start(0, pausedAt);
-
-        isPlaying = true;
-        updatePlayButton();
-        requestAnimationFrame(updateProgress);
-    }
-
-    function pauseAudio() {
-        if (sourceNode) {
-            sourceNode.stop();
-            sourceNode.disconnect();
-            sourceNode = null;
-        }
-        // Save current position
-        pausedAt = (audioCtx.currentTime - startTime) * playbackRate;
-
-        isPlaying = false;
-        updatePlayButton();
-    }
-
-    function stopAudio() {
-        if (sourceNode) {
-            try { sourceNode.stop(); } catch (e) { }
-            sourceNode.disconnect();
-            sourceNode = null;
-        }
-        isPlaying = false;
-        pausedAt = 0;
-        startTime = 0;
-        updatePlayButton();
-        seekSlider.value = 0;
-        drawWaveform(); // Reset cursor
-    }
-
-    function togglePlayPause() {
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
-        if (isPlaying) {
-            // Calculate where we are before stopping
-            const elapsedWallTime = audioCtx.currentTime - startTime;
-            pausedAt += elapsedWallTime * playbackRate;
-            pauseAudio();
-        } else {
-            playAudio();
-        }
-    }
-
-    // Override pauseAudio to be simpler, logic moved to toggle/seek
-    function internalPause() {
-        if (sourceNode) {
-            sourceNode.stop();
-            sourceNode.disconnect();
-            sourceNode = null;
-        }
-        isPlaying = false;
-        updatePlayButton();
-    }
-
-    function getCurrentTime() {
-        if (!isPlaying) return pausedAt;
-        const elapsed = audioCtx.currentTime - startTime;
-        let time = pausedAt + (elapsed * playbackRate);
-        if (time > audioBuffer.duration) {
-            time = audioBuffer.duration;
-            stopAudio(); // Auto stop at end
-        }
-        return time;
-    }
-
-    function handleSpeedChange(val) {
-        const newRate = val;
-
-        if (isPlaying) {
-            const currentBufferTime = getCurrentTime();
-            pausedAt = currentBufferTime;
-            startTime = audioCtx.currentTime;
-
-            if (sourceNode) {
-                sourceNode.playbackRate.setValueAtTime(newRate, audioCtx.currentTime);
-            }
-        }
-
-        playbackRate = newRate;
-    }
-
-    function handleReverbChange(val) {
-        reverbAmount = val;
-        updateReverbMix();
-    }
-
-    function updateReverbMix() {
-        if (!dryNode || !wetNode) return;
-        // Dry: 1 - amount, Wet: amount
-        dryNode.gain.value = 1 - reverbAmount;
-        wetNode.gain.value = reverbAmount * 2; // Boost wet a bit as reverb can be quiet
-    }
-
-    function handleSeek(e) {
-        if (!audioBuffer) return;
-        const seekTime = parseFloat(e.target.value);
-
-        if (isPlaying) {
-            internalPause();
-            pausedAt = seekTime;
-            playAudio();
-        } else {
-            pausedAt = seekTime;
-            drawWaveform();
-        }
-        currentTimeDisplay.textContent = formatTime(seekTime);
-    }
-
-    function handleSeekEnd(e) {
-        // Ensure we are at the right spot
-    }
-
-    // --- Visualization ---
-    function drawWaveform() {
-        if (!audioBuffer) return;
-
-        const width = canvas.width;
-        const height = canvas.height;
-        const data = audioBuffer.getChannelData(0); // Left channel
-        const step = Math.ceil(data.length / width);
-        const amp = height / 2;
-
-        ctx.clearRect(0, 0, width, height);
-
-        // Draw Waveform
-        ctx.beginPath();
-        ctx.strokeStyle = '#8b5cf6'; // Primary color
-        ctx.lineWidth = 2;
-
-        for (let i = 0; i < width; i++) {
-            let min = 1.0;
-            let max = -1.0;
-
-            for (let j = 0; j < step; j++) {
-                const datum = data[(i * step) + j];
-                if (datum < min) min = datum;
-                if (datum > max) max = datum;
-            }
-
-            ctx.moveTo(i, (1 + min) * amp);
-            ctx.lineTo(i, (1 + max) * amp);
-        }
-        ctx.stroke();
-
-        // Draw Playhead - Handled by Slider now?
-        // Actually, we still want to draw the playhead on the canvas OR rely on the slider thumb.
-        // The slider thumb is styled to look like a playhead.
-        // So we DON'T draw the rect on canvas anymore, to avoid double playheads.
-
-        // Update Time Display
-        // currentTimeDisplay.textContent = formatTime(currentPos); // Done in updateProgress
-    }
+    // Update Time Display
+    // currentTimeDisplay.textContent = formatTime(currentPos); // Done in updateProgress
+}
 
     function updateProgress() {
         if (!isPlaying) return;
